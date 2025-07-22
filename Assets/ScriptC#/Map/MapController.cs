@@ -30,6 +30,9 @@ public class MapController : MonoBehaviour
     private static Dictionary<Vector2Int, MapNode> persistentMapData = new Dictionary<Vector2Int, MapNode>();
     private MapNode currentNode;
 
+    // *** BUG FIX: 添加一个全局状态锁来防止连续点击和移动 ***
+    private bool isPlayerActionInProgress = false;
+
     void Awake()
     {
         // 点击逻辑由Update处理
@@ -42,6 +45,12 @@ public class MapController : MonoBehaviour
 
     void Update()
     {
+        // *** BUG FIX: 在处理点击前，先检查状态锁 ***
+        if (isPlayerActionInProgress)
+        {
+            return; // 如果正在处理一个行动，则忽略所有新的点击
+        }
+
         if (Input.GetMouseButtonDown(0))
         {
             if (EventSystem.current.IsPointerOverGameObject())
@@ -87,10 +96,10 @@ public class MapController : MonoBehaviour
         mapView.HighlightCurrentNode(currentNode);
     }
 
-    // *** 核心改动: 重构 HandleNodeClicked 以处理食物/生命值消耗 ***
     private void HandleNodeClicked(MapNode clickedNode)
     {
-        if (currentNode == null || !IsMoveValid(clickedNode)) return;
+        // *** BUG FIX: 再次检查状态锁，作为双重保险 ***
+        if (isPlayerActionInProgress || currentNode == null || !IsMoveValid(clickedNode)) return;
 
         int totalFoodCost = foodCostPerMove;
         if (clickedNode.isCompleted)
@@ -98,25 +107,31 @@ public class MapController : MonoBehaviour
             totalFoodCost += extraFoodCostForVisited;
         }
 
-        if (playerData.Food < totalFoodCost)
+        // 检查资源是否足够
+        bool canPayWithFood = playerData.Food >= totalFoodCost;
+        bool canPayWithHealth = playerData.currentHP > totalFoodCost; // 注意是大于，如果等于就死了
+
+        if (canPayWithFood)
         {
-            Debug.Log($"食物不足，需要 {totalFoodCost}，但只有 {playerData.Food}。");
-            if (playerData.currentHP > totalFoodCost)
-            {
-                Debug.Log($"生命值充足 ({playerData.currentHP})，准备移动。");
-                StartCoroutine(MoveAndProcessNode(clickedNode, 0, totalFoodCost));
-            }
-            else
-            {
-                Debug.Log($"生命值不足 ({playerData.currentHP})，无法移动！");
-                return;
-            }
+            // *** BUG FIX: 在启动协程前，立刻锁上状态 ***
+            isPlayerActionInProgress = true;
+            StartCoroutine(MoveAndProcessNode(clickedNode, totalFoodCost, 0));
+        }
+        else if (canPayWithHealth)
+        {
+            Debug.Log($"食物不足，但生命值充足。消耗生命值移动。");
+            // *** BUG FIX: 在启动协程前，立刻锁上状态 ***
+            isPlayerActionInProgress = true;
+            StartCoroutine(MoveAndProcessNode(clickedNode, 0, totalFoodCost));
         }
         else
         {
-            StartCoroutine(MoveAndProcessNode(clickedNode, totalFoodCost, 0));
+            Debug.Log($"食物和生命值都不足，无法移动！");
+            // 可以在这里触发一个UI提示
+            return;
         }
     }
+
     private bool IsMoveValid(MapNode targetNode)
     {
         if (targetNode == currentNode) return false;
@@ -124,30 +139,48 @@ public class MapController : MonoBehaviour
         return Mathf.Abs(distance.x) + Mathf.Abs(distance.y) == 1;
     }
 
-    // *** 核心改动: MoveAndProcessNode 现在接收两种消耗参数 ***
     private IEnumerator MoveAndProcessNode(MapNode targetNode, int foodToConsume, int healthToConsume)
     {
-        if (foodToConsume > 0) playerData.Food -= foodToConsume;
-        if (healthToConsume > 0) playerData.currentHP -= healthToConsume;
-
-        currentNode.isCompleted = true;
-        mapView.UpdateSingleNodeVisual(currentNode);
-        yield return playerMarker.MoveTo(mapView.GetNodePosition(targetNode));
-        currentNode = targetNode;
-        sessionData.playerMapPosition = currentNode.position;
-        mapView.HighlightCurrentNode(currentNode);
-        NodeUI targetNodeUI = mapView.GetNodeUI(targetNode);
-        if (targetNodeUI != null)
+        // *** BUG FIX: 使用try...finally确保状态锁一定会被释放 ***
+        try
         {
-            yield return targetNodeUI.PlayEnterAnimation();
+            // 资源消耗和移动逻辑
+            if (foodToConsume > 0) playerData.Food -= foodToConsume;
+            if (healthToConsume > 0) playerData.currentHP -= healthToConsume;
+
+            currentNode.isCompleted = true;
+            mapView.UpdateSingleNodeVisual(currentNode);
+            yield return playerMarker.MoveTo(mapView.GetNodePosition(targetNode));
+            currentNode = targetNode;
+            sessionData.playerMapPosition = currentNode.position;
+            mapView.HighlightCurrentNode(currentNode);
+
+            // 播放进入动画
+            NodeUI targetNodeUI = mapView.GetNodeUI(targetNode);
+            if (targetNodeUI != null)
+            {
+                yield return targetNodeUI.PlayEnterAnimation();
+            }
+
+            // 处理节点事件
+            ProcessNodeType(targetNode);
         }
-        ProcessNodeType(targetNode);
+        finally
+        {
+            // *** BUG FIX: 无论协程如何结束（正常完成或因场景切换而中断），都解锁 ***
+            // 如果ProcessNodeType切换了场景，这个对象会被销毁，锁自然消失。
+            // 如果没切换场景（如商店），则必须在这里手动解锁以允许下一次行动。
+            isPlayerActionInProgress = false;
+        }
     }
+
     private void ProcessNodeType(MapNode node)
     {
-        if (node.isCompleted) return;
+        // 如果节点之前已经完成，并且不是商店这种可以重复进入的，就直接返回
+        if (node.isCompleted && node.type != NodeType.Shop) return;
 
-            if (!node.isCompleted)
+        // 标记节点为已完成
+        if (!node.isCompleted)
         {
             node.isCompleted = true;
         }
@@ -156,17 +189,11 @@ public class MapController : MonoBehaviour
         {
             case NodeType.Battle:
             case NodeType.EliteBattle:
-                // *** 核心修复: 使用一个不同的变量名来接收类型转换的结果 ***
                 if (node.contentData is PlayerData enemyData)
                 {
-                    // 将检查到的敌人数据赋值给会话
                     sessionData.nextEnemy = enemyData;
-
-                    // 检查是否是终点
-                    bool isFinalBoss = (node.position.x == mapWidth - 1 && node.position.y == mapHeight - 1);
-                    sessionData.isFinalBossBattle = isFinalBoss;
-
-                    // 切换场景
+                    // 在MapGenerator中我们已经确保了终点就是Boss战，这里可以简化
+                    sessionData.isFinalBossBattle = (node.type == NodeType.EliteBattle && node.position == new Vector2Int(mapWidth - 1, mapHeight - 1));
                     sceneSwitcher.SwitchScene("BattleScene");
                 }
                 else
@@ -180,8 +207,8 @@ public class MapController : MonoBehaviour
             case NodeType.Event:
                 EventManager.Instance?.StartRandomEvent();
                 break;
-            case NodeType.End: // 我们之前的逻辑是用Boss战代替了End，但保留这个case以备后用
-                Debug.Log("到达名义上的终点（但它现在是Boss战）。");
+            case NodeType.End:
+                Debug.Log("到达终点。");
                 break;
         }
     }
