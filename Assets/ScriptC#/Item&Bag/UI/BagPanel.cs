@@ -7,15 +7,17 @@ using UnityEngine.UI;
 
 public class BagPanel : MonoBehaviour
 {
-
     [Header("数据引用")]
     [SerializeField] private PlayerData runtimePlayerData;
     [SerializeField] private Bag runtimeBagData;
 
     [Header("UI 元素")]
-    [Tooltip("存放所有格子UI的父对象，需要挂载Grid Layout Group")]
     public Transform slotsContainer;
     public GameObject slotPrefab;
+
+    // *** 新增: 全局唯一的浮动“使用”按钮 ***
+    [Tooltip("整个背包面板共享的唯一一个“使用”按钮")]
+    public Button floatingUseButton;
 
     [Header("分页按钮")]
     public Button allItemsButton;
@@ -26,36 +28,38 @@ public class BagPanel : MonoBehaviour
     public Button closeButton;
 
     private List<GameObject> spawnedSlots = new List<GameObject>();
-    private ItemType? currentFilter = null; // null 代表“全部”
+    private ItemType? currentFilter = null;
+    private BagSlot currentSelectedSlot; // 记录当前哪个格子被选中
 
-    // Awake 会在对象被激活时，在OnEnable和Start之前执行
     void Awake()
     {
-        if (runtimeBagData != null)
-        {
-            runtimeBagData.OnInventoryChanged += Redraw;
-        }
-
+        if (runtimeBagData != null) runtimeBagData.OnInventoryChanged += Redraw;
         closeButton?.onClick.AddListener(ClosePanel);
         allItemsButton?.onClick.AddListener(() => SetFilterAndRedraw(null));
         equipmentButton?.onClick.AddListener(() => SetFilterAndRedraw(ItemType.Equipment));
         consumablesButton?.onClick.AddListener(() => SetFilterAndRedraw(ItemType.Consumable));
+
+        // *** 新增: 初始化浮动按钮 ***
+        floatingUseButton?.gameObject.SetActive(false);
+        floatingUseButton?.onClick.AddListener(OnFloatingUseButtonClicked);
     }
 
-    // OnEnable 是在对象从非激活状态变为激活状态时执行的最佳时机
     void OnEnable()
     {
-        // 每次面板被激活时，都重新绘制一次，以显示最新内容
         Redraw();
+        // 每次打开面板，隐藏浮动按钮
+        floatingUseButton?.gameObject.SetActive(false);
+    }
+
+    void OnDisable()
+    {
+        // 关闭面板时也隐藏浮动按钮，以防万一
+        floatingUseButton?.gameObject.SetActive(false);
     }
 
     void OnDestroy()
     {
-        // 务必在对象销毁时取消订阅，防止内存泄漏
-        if (runtimeBagData != null)
-        {
-            runtimeBagData.OnInventoryChanged -= Redraw;
-        }
+        if (runtimeBagData != null) runtimeBagData.OnInventoryChanged -= Redraw;
     }
 
     public void ClosePanel()
@@ -63,28 +67,69 @@ public class BagPanel : MonoBehaviour
         gameObject.SetActive(false);
     }
 
-    private void SetFilterAndRedraw(ItemType? filter)
+    // *** 新增: SlotUI会调用这个方法来请求显示“使用”按钮 ***
+    public void RequestShowUseButton(SlotUI clickedSlotUI, BagSlot slotData)
     {
-        currentFilter = filter;
-        Redraw();
-    }
+        if (floatingUseButton == null) return;
 
-    /// <summary>
-    /// 核心方法：重新绘制整个背包界面
-    /// </summary>
-    public void Redraw()
-    {
-        // 如果面板未激活（比如在Awake阶段调用时），则不进行绘制，节省性能
-        if (!gameObject.activeInHierarchy)
+        // 如果点击的是同一个已选中的格子，则切换显示状态
+        if (currentSelectedSlot == slotData && floatingUseButton.gameObject.activeSelf)
         {
+            floatingUseButton.gameObject.SetActive(false);
             return;
         }
 
-        // 1. 销毁所有旧的格子
-        foreach (var slot in spawnedSlots)
+        // 否则，更新目标并显示
+        currentSelectedSlot = slotData;
+        floatingUseButton.gameObject.SetActive(true);
+
+        // *** 核心修改点在这里 ***
+        // 将浮动按钮移动到被点击格子的位置，并应用Y轴偏移
+
+        // 方法1：直接修改 position 的 y 值
+        Vector3 targetPosition = clickedSlotUI.transform.position;
+        targetPosition.y -= 0.25f; // 注意：这是世界单位(World Units)的偏移
+        floatingUseButton.transform.position = targetPosition;
+
+        // --- 或者，如果你更喜欢用像素单位思考，可以这样做 ---
+
+        // 方法2：使用 RectTransform 和 Canvas 进行更精确的像素级偏移（推荐）
+        // 假设你的Canvas是Screen Space - Overlay模式
+        RectTransform buttonRect = floatingUseButton.GetComponent<RectTransform>();
+        RectTransform slotRect = clickedSlotUI.GetComponent<RectTransform>();
+
+        // 将slot的锚点位置转换为世界坐标，然后设置给按钮
+        buttonRect.position = slotRect.position;
+
+        // 在本地坐标系下向下移动。这比直接修改世界坐标更可靠，不受屏幕分辨率影响。
+        // y坐标-25像素，你可以根据按钮和格子的实际大小调整这个值。
+        buttonRect.anchoredPosition += new Vector2(0, -25f);
+    }
+    private void OnFloatingUseButtonClicked()
+    {
+        if (currentSelectedSlot != null && runtimePlayerData != null)
         {
-            Destroy(slot);
+            currentSelectedSlot.item.Use(runtimePlayerData);
+            runtimePlayerData.inventory.RemoveItem(currentSelectedSlot.item, 1);
+
+            // 使用后，物品可能消失，背包会重绘，此时浮动按钮也应隐藏
+            floatingUseButton.gameObject.SetActive(false);
+            currentSelectedSlot = null; // 清除选中状态
         }
+    }
+
+    private void SetFilterAndRedraw(ItemType? filter)
+    {
+        currentFilter = filter;
+        floatingUseButton?.gameObject.SetActive(false); // 切换筛选时隐藏按钮
+        Redraw();
+    }
+
+    public void Redraw()
+    {
+        if (!gameObject.activeInHierarchy) return;
+
+        foreach (var slot in spawnedSlots) Destroy(slot);
         spawnedSlots.Clear();
 
         var itemsToShow = GetFilteredItems();
@@ -93,8 +138,10 @@ public class BagPanel : MonoBehaviour
         {
             GameObject newSlotGO = Instantiate(slotPrefab, slotsContainer);
             SlotUI slotUI = newSlotGO.GetComponent<SlotUI>();
-            // *** 核心改动: 在设置格子时，把玩家数据也传进去 ***
-            slotUI.Init(runtimePlayerData);
+
+            // *** 修改: Init方法现在只需要传递BagPanel自身和PlayerData ***
+            slotUI.Init(runtimePlayerData, this);
+
             slotUI.UpdateSlot(bagSlot);
             spawnedSlots.Add(newSlotGO);
         }
@@ -103,14 +150,7 @@ public class BagPanel : MonoBehaviour
     private List<BagSlot> GetFilteredItems()
     {
         if (runtimeBagData == null) return new List<BagSlot>();
-
-        // 如果筛选器为null，返回所有物品
-        if (currentFilter == null)
-        {
-            return runtimeBagData.slots;
-        }
-
-        // 否则，使用Linq根据物品类型进行筛选
+        if (currentFilter == null) return runtimeBagData.slots;
         return runtimeBagData.slots.Where(slot => slot.item.type == currentFilter.Value).ToList();
     }
 }

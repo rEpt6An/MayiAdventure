@@ -4,43 +4,33 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-// 我们现在要求Button和TooltipTrigger都必须存在
 [RequireComponent(typeof(Button), typeof(TooltipTrigger))]
 public class SlotUI : MonoBehaviour
 {
     [Header("UI 元素")]
     public Image icon;
     public TextMeshProUGUI quantityText;
-    public Button useButton;
 
     private BagSlot currentSlotData;
     private TooltipTrigger tooltipTrigger;
-    private Button slotButton; // 缓存整个格子的按钮
+    private Button slotButton;
 
-    private PlayerData runtimePlayerData;
+    // 不再需要直接引用PlayerData，所有操作通过BagPanel进行
+    private BagPanel parentBagPanel;
 
     void Awake()
     {
         tooltipTrigger = GetComponent<TooltipTrigger>();
         slotButton = GetComponent<Button>();
 
-        // *** 核心修复: 增加健壮性检查 ***
-        if (tooltipTrigger == null)
-        {
-            Debug.LogError("SlotUI: 所在的GameObject上缺少 TooltipTrigger 组件！", this.gameObject);
-        }
-        if (slotButton == null)
-        {
-            Debug.LogError("SlotUI: 所在的GameObject上缺少 Button 组件！", this.gameObject);
-        }
-
-        useButton?.gameObject.SetActive(false);
-        useButton?.onClick.AddListener(OnUseButtonClicked);
+        if (tooltipTrigger == null) Debug.LogError("SlotUI: 缺少 TooltipTrigger 组件！", this.gameObject);
+        if (slotButton == null) Debug.LogError("SlotUI: 缺少 Button 组件！", this.gameObject);
     }
 
-    public void Init(PlayerData playerData)
+    // *** 修改: Init方法现在只需要一个对BagPanel的引用 ***
+    public void Init(PlayerData playerData, BagPanel bagPanel) // PlayerData可以去掉，但保留以防万一
     {
-        this.runtimePlayerData = playerData;
+        this.parentBagPanel = bagPanel;
     }
 
     public void UpdateSlot(BagSlot slotData)
@@ -51,7 +41,7 @@ public class SlotUI : MonoBehaviour
         {
             icon.enabled = false;
             quantityText.enabled = false;
-            tooltipTrigger?.SetDataProvider(null); // 安全调用
+            tooltipTrigger?.SetDataProvider(null);
             slotButton?.onClick.RemoveAllListeners();
             return;
         }
@@ -61,7 +51,7 @@ public class SlotUI : MonoBehaviour
         quantityText.enabled = (slotData.quantity > 1);
         if (quantityText != null) quantityText.text = slotData.quantity.ToString();
 
-        tooltipTrigger?.SetDataProvider(slotData.item); // 安全调用
+        tooltipTrigger?.SetDataProvider(slotData.item);
 
         slotButton?.onClick.RemoveAllListeners();
         slotButton?.onClick.AddListener(OnSlotClicked);
@@ -71,20 +61,15 @@ public class SlotUI : MonoBehaviour
     {
         if (currentSlotData?.item.type == ItemType.Consumable)
         {
-            useButton?.gameObject.SetActive(!useButton.gameObject.activeSelf);
+            // *** 核心逻辑: 只需通知父面板 ***
+            parentBagPanel?.RequestShowUseButton(this, currentSlotData);
         }
-    }
-
-    private void OnUseButtonClicked()
-    {
-        if (currentSlotData != null && runtimePlayerData != null)
+        else
         {
-            // 使用物品（调用ItemData内部的通用效果应用逻辑）
-            currentSlotData.item.Use(runtimePlayerData);
-            // 从背包中移除一个
-            runtimePlayerData.inventory.RemoveItem(currentSlotData.item, 1);
-
-            useButton?.gameObject.SetActive(false);
+            // 如果点击的是非消耗品，可以考虑隐藏浮动按钮
+            // parentBagPanel?.floatingUseButton.SetActive(false);
         }
     }
+
+    // 不再需要 useButton 和相关的本地方法了
 }
