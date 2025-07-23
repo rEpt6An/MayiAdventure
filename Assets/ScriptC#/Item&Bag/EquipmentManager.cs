@@ -82,6 +82,8 @@ public class EquipmentManager : MonoBehaviour
 
         // 3. 计算“新旧”加成之间的差值
         // (为了方便，我们直接把差值应用到玩家身上)
+        // *** BUG FIX: 计算最大生命值的净变化量 ***
+        int maxHpDelta = currentEquipmentStats.maxHP - lastEquipmentStats.maxHP;
 
         // a. 先减去“上一次”的加成
         runtimePlayerData.maxHP -= lastEquipmentStats.maxHP;
@@ -103,6 +105,10 @@ public class EquipmentManager : MonoBehaviour
         runtimePlayerData.Miss += currentEquipmentStats.Miss;
         runtimePlayerData.suckblood += currentEquipmentStats.suckblood;
         // ... 为所有会被装备影响的属性执行加法 ...
+        // *** BUG FIX: 将最大生命值的变化量应用到当前生命值 ***
+        // 如果 maxHpDelta 是正数（穿了加血装备），当前血量增加
+        // 如果 maxHpDelta 是负数（脱了减血装备），当前血量减少
+        runtimePlayerData.currentHP += maxHpDelta;
 
         // 4. 确保当前血量不会超过新的最大血量
         runtimePlayerData.currentHP = Mathf.Min(runtimePlayerData.currentHP, runtimePlayerData.maxHP);
