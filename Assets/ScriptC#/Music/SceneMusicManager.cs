@@ -36,40 +36,24 @@ public class SceneMusicManager : MonoBehaviour
         SceneManager.sceneLoaded -= OnSceneLoaded;
     }
 
-    /// <summary>
-    /// 当一个新场景加载完成时，这个方法会被自动调用。
-    /// </summary>
-    /// <param name="scene">加载的场景信息</param>
-    /// <param name="mode">加载模式 (Single, Additive)</param>
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        // 使用场景名称来决定播放哪个BGM
         string sceneName = scene.name;
-
-        Debug.Log($"场景 '{sceneName}' 加载完毕，准备切换BGM。");
+        Debug.Log($"[SceneMusicManager] 场景 '{sceneName}' 加载完成，请求切换BGM。");
 
         switch (sceneName)
         {
-            case "MainMenu": // 请替换成你的主菜单场景的确切名称
-                AudioManager.Instance.PlayMainMenuBGM();
-                break;
-
-            case "Map": // 请替换成你的地图场景的确切名称
+            case "Map":
                 AudioManager.Instance.PlayMapBGM();
                 break;
-
-            case "BattleScene": // 请替换成你的战斗场景的确切名称
-                // 进入战斗前，我们希望地图音乐是暂停的，而不是完全停止
-                // 这样回到地图时才能继续。
-                // 这个“暂停”的动作，最好由触发战斗的地方发起。
-                AudioManager.Instance.PauseBGM(); // 暂停当前音乐（可能是地图音乐）
+            case "BattleScene":
                 AudioManager.Instance.PlayBattleBGM();
                 break;
 
-            // 你可以为其他任何场景添加BGM
-            // case "ShopScene":
-            //     AudioManager.Instance.PlayShopBGM();
-            //     break;
+
+            case "MainMenu": // 请替换成你的主菜单场景的确切名称
+                AudioManager.Instance.PlayMainMenuBGM();
+                break;
 
             default:
                 // 如果是未定义的场景，可以选择停止音乐或什么都不做

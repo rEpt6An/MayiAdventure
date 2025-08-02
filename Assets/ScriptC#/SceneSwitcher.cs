@@ -38,21 +38,13 @@ public class SceneSwitcher : MonoBehaviour
     /// </summary>
     private void PrepareForSceneSwitch(string nextSceneName)
     {
-        // 根据下一个场景的名称来决定是否需要暂停BGM
-        switch (nextSceneName)
+        if (nextSceneName == "BattleScene")
         {
-            case "BattleScene": // 请替换为你的战斗场景的确切名称
-                Debug.Log("即将进入战斗场景，暂停当前BGM。");
-                AudioManager.Instance.PauseBGM();
-                break;
-
-                // 你可以为其他需要特殊处理的场景添加case
-                // case "CutsceneScene":
-                //     AudioManager.Instance.StopBGM(); // 比如进入过场动画时完全停止音乐
-                //     break;
+            // --- 核心改动：调用新的方法来暂停并记录时间 ---
+            Debug.Log("[SceneSwitcher] 准备切换到 BattleScene，请求暂停并记录主BGM时间。");
+            AudioManager.Instance.PauseAndStoreMainBGMTime();
         }
     }
-
     private bool IsSceneInBuildSettings(string sceneName)
     {
         for (int i = 0; i < SceneManager.sceneCountInBuildSettings; i++)
