@@ -3873,6 +3873,10 @@ PrefabInstance:
       propertyPath: mapBGM
       value: 
       objectReference: {fileID: 8300000, guid: 2b6c3ae45861fed4c88f919a5e6282a0, type: 3}
+    - target: {fileID: 2194106585067783827, guid: 6e65661ef310d3048bd6922ff671e803, type: 3}
+      propertyPath: battleBGM
+      value: 
+      objectReference: {fileID: 8300000, guid: 93896fb1909ea484e9a09c38438bd34e, type: 3}
     - target: {fileID: 3413350459061272553, guid: 6e65661ef310d3048bd6922ff671e803, type: 3}
       propertyPath: m_LocalPosition.x
       value: 57.76566
