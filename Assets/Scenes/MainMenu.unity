@@ -1313,7 +1313,7 @@ RectTransform:
   m_Father: {fileID: 1956315478}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 20, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -2300,7 +2300,7 @@ RectTransform:
   m_Father: {fileID: 431417314}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 20, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -2491,7 +2491,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_text: "\t\u5236\u4F5C\u540D\u5355\n\u7B56\u5212\uFF1A\u7A97\u5916\u4E0B\u96E8\u4E86\u5417\n\u7A0B\u5E8F\uFF1A\u7A97\u5916\u4E0B\u96E8\u4E86\u5417\n\u7F8E\u672F\uFF1A\u7A97\u5916\u4E0B\u96E8\u4E86\u5417 
-    \u6A59\u5B50\n\u97F3\u4E50\uFF1A\u7A97\u5916\u4E0B\u96E8\u4E86\u5417  \uFF08\u8FD8\u6CA1\u505A\n"
+    \u6A59\u5B50\n\u97F3\u4E50\uFF1A\u7A97\u5916\u4E0B\u96E8\u4E86\u5417  \u4E1C\u800C\u74DC\u4E4B\n"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 090d9cfad270e3e45b87cdf07d61186d, type: 2}
   m_sharedMaterial: {fileID: 4177029991390006899, guid: 090d9cfad270e3e45b87cdf07d61186d, type: 2}
@@ -2884,7 +2884,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1518404123
 RectTransform:
   m_ObjectHideFlags: 0
@@ -3322,7 +3322,7 @@ RectTransform:
   m_Father: {fileID: 683712876}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 10, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -3819,7 +3819,7 @@ RectTransform:
   m_Father: {fileID: 1368644802}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 10, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
